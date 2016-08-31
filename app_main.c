@@ -510,7 +510,10 @@ void send_control_status(cmd_content_t* cmd,uint8 status)
 	strcat(TxBuffer, JY_DOMAIN_NAME);
 	strcat(TxBuffer, "\r\n");
 	strcat(TxBuffer, "Connection: Keep-Alive\r\n");
-	strcat(TxBuffer, "Cookie: PHPSESSID=irtfkkj4qlda40hgtov9jablg6; theme=default; lang=en\r\n");
+	strcat(TxBuffer, "Cookie: PHPSESSID=");
+	strcat(TxBuffer, cookie);
+	strcat(TxBuffer, "; theme=default; lang=en\r\n");
+	//strcat(TxBuffer, "Cookie: PHPSESSID=irtfkkj4qlda40hgtov9jablg6; theme=default; lang=en\r\n");
 	strcat(TxBuffer, "User-Agent: atmel/1.0.2\r\n");
 	strcat(TxBuffer, "\r\n");
 

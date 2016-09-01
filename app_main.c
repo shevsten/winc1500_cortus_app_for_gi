@@ -252,6 +252,7 @@ static void wifi_cb(uint8 u8MsgType, void * pvMsg)
 		else if (pstrWifiState->u8CurrState == M2M_WIFI_DISCONNECTED)
 		{
 			gbWifiConnected = M2M_WIFI_DISCONNECTED;
+			close_httpclient_socket();
 			disconn_cnt++;
 			if(disconn_cnt == MAX_DISCONNECT_CNT){
 				//clear_parameter();
@@ -261,6 +262,7 @@ static void wifi_cb(uint8 u8MsgType, void * pvMsg)
 			}
 			if(gu8App == APP_WIFI)
 			{
+
 				M2M_DBG("connecting to ssid:%s, key:%s\r\n",g_wifi_param.ssid,g_wifi_param.password);
 				m2m_wifi_connect((char*)g_wifi_param.ssid,
 						(uint8)m2m_strlen((uint8*)g_wifi_param.ssid),
@@ -325,7 +327,7 @@ void close_httpclient_socket()
 {
 	//app_os_sem_up(&gstrAppSem);
 	app_os_timer_stop(&gstrTimerHB);
-	//g_wifi_param.device_inst.login_status = 0;
+	g_wifi_param.device_inst.login_status = 0;
 	if(httpsClientSocket>=0){
 		close(httpsClientSocket);
 
@@ -334,7 +336,7 @@ void close_httpclient_socket()
 	httpsClientSocket = -1;
 	gbHeartBeatReady = 1;
 
-	if(gu8App == APP_WIFI)
+	if(gu8App == APP_WIFI && gbWifiConnected == M2M_WIFI_CONNECTED)
 		create_event(ACT_REQ_SERVER_CONNECT);
 
 }

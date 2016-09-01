@@ -51,7 +51,7 @@ static void serial_timer_callback(void *p)
 	uint8 *buf = NULL;
 	uint16 buflen = 0;
 	serial_timeout++;
-	M2M_DBG("serial_timer_callback\r\n");
+	//M2M_DBG("serial_timer_callback\r\n");
 	if(serial_timeout > SERIAL_TIMEOUT) {
 		serial_timeout = 0;
 		app_os_timer_stop(&gstrTimerSerial);

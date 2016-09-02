@@ -61,6 +61,7 @@ static char  TxBuffer[TX_BUFFER_SIZE];
 static char  gau8RxBuffer[RX_BUFFER_SIZE];
 static char configCallbackBuf[CONFIG_CALLBACK_LEN]={0};
 static char cookie[COOKIE_LEN]={0};
+uint8 serial_packet[SERIAL_BUF_SIZE];
 //static uint8  selfDHCPIp[4];
 static uint8 disconn_cnt = 0;
 //event table
@@ -252,7 +253,7 @@ static void wifi_cb(uint8 u8MsgType, void * pvMsg)
 		else if (pstrWifiState->u8CurrState == M2M_WIFI_DISCONNECTED)
 		{
 			gbWifiConnected = M2M_WIFI_DISCONNECTED;
-			close_httpclient_socket();
+
 			disconn_cnt++;
 			if(disconn_cnt == MAX_DISCONNECT_CNT){
 				//clear_parameter();
@@ -262,7 +263,7 @@ static void wifi_cb(uint8 u8MsgType, void * pvMsg)
 			}
 			if(gu8App == APP_WIFI)
 			{
-
+				close_httpclient_socket();
 				M2M_DBG("connecting to ssid:%s, key:%s\r\n",g_wifi_param.ssid,g_wifi_param.password);
 				m2m_wifi_connect((char*)g_wifi_param.ssid,
 						(uint8)m2m_strlen((uint8*)g_wifi_param.ssid),
@@ -479,14 +480,14 @@ void send_heartbeat_packet(void* p)
 	strcat(tempbuf, "func=device.beat\r\n");
 	generate_http_post_header(TxBuffer,tempbuf, true);
 
-	if(httpsClientSocket>=0){
+	if(httpsClientSocket >= 0){
 		M2M_DBG("send heartbeat\r\n%s\n", TxBuffer);
 		send(httpsClientSocket, (uint8*)TxBuffer, strlen(TxBuffer), 0);
 
-//		if (app_os_timer_start(&gstrTimerHBResp, "heart beat check timer",
-//				check_heartbeat_packet_resp,HB_RESP_INTERVAL, 0,NULL, 1)) {
-//			M2M_ERR("Can't start timer\n");
-//		}
+		if (app_os_timer_start(&gstrTimerHBResp, "heart beat check timer",
+				check_heartbeat_packet_resp,HB_RESP_INTERVAL, 0,NULL, 1)) {
+			M2M_ERR("Can't start timer\n");
+		}
 	}
 
 }
@@ -1116,6 +1117,8 @@ void App_ProcessActRequest(tenuActReq enuActReq)
 		M2M_DBG("spi_flash_erase %d %d\n",M2M_OTA_IMAGE2_OFFSET,ret);
 		app_os_sch_task_sleep(5);//delay 5 OS_TICKs
 		chip_reset();
+	}else if(enuActReq == ACT_REQ_SERIAL_RECV){
+
 	}
 }
 

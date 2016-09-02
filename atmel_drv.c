@@ -31,16 +31,18 @@ uint16 piececount;
 
 extern tstrOsSemaphore gstrAppSem;
 extern void create_event(tenuActReq evt);
+extern uint8 serial_packet[SERIAL_BUF_SIZE];
 
 void parse_serial_packet(uint16 buflen)
 {
 	uint8 *p = serial_recved;
 	M2M_DBG("serial recv:%s!\r\n",p);
+	memcpy(serial_packet,serial_recved,buflen);
+	//if(strstr(p,"RESET") || strstr(p,"reset")){
+	//	M2M_DBG("Reset configuration!\r\n");
+		create_event(ACT_REQ_SERIAL_RECV);
+	//}
 
-	if(strstr(p,"RESET") || strstr(p,"reset")){
-		M2M_DBG("Reset configuration!\r\n");
-		create_event(ACT_REQ_FACTORY_RESET);
-	}
 
 	return;
 }

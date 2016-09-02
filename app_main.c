@@ -967,16 +967,18 @@ void AppServerCb(uint8* pu8HostName, uint32 u32ServerIP)
 	}
 	else
 	{
-		static uint8	u8Retry = 2;
-		if(u8Retry--)
-		{
-			M2M_DBG("Retry Resolving DNS\n");
-			gethostbyname((uint8*)JY_DOMAIN_NAME);
-		}
-		else
-		{
-			M2M_DBG("Failed to Resolve DNS\n");
-		}
+//		static uint8	u8Retry = 2;
+//		if(u8Retry--)
+//		{
+//			M2M_DBG("Retry Resolving DNS\n");
+//			gethostbyname((uint8*)JY_DOMAIN_NAME);
+//		}
+//		else
+//		{
+//			M2M_DBG("Failed to Resolve DNS\n");
+//		}
+		M2M_DBG("Retry Resolving DNS\n");
+		create_event(ACT_REQ_DNS_RESOLVE);
 	}
 }
 
@@ -1116,6 +1118,8 @@ void App_ProcessActRequest(tenuActReq enuActReq)
 		M2M_DBG("spi_flash_erase %d %d\n",M2M_OTA_IMAGE2_OFFSET,ret);
 		app_os_sch_task_sleep(5);//delay 5 OS_TICKs
 		chip_reset();
+	}else if(enuActReq == ACT_REQ_DNS_RESOLVE){
+		gethostbyname((uint8*)JY_DOMAIN_NAME);
 	}else if(enuActReq == ACT_REQ_SERIAL_RECV){
 		M2M_DBG("response from usart:\r\n%s",serial_packet);//in case string response
 		//construct http response packet

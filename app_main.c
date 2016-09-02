@@ -1071,7 +1071,6 @@ void App_ProcessActRequest(tenuActReq enuActReq)
 					}
 				}else{
 					//config fail,reset to AP mode
-					//app_os_sch_task_sleep(100);//delay 5 OS_TICKs
 					chip_reset();
 				}
 			}
@@ -1118,7 +1117,8 @@ void App_ProcessActRequest(tenuActReq enuActReq)
 		app_os_sch_task_sleep(5);//delay 5 OS_TICKs
 		chip_reset();
 	}else if(enuActReq == ACT_REQ_SERIAL_RECV){
-
+		M2M_DBG("response from usart:\r\n%s",serial_packet);//in case string response
+		//construct http response packet
 	}
 }
 

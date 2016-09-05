@@ -86,6 +86,7 @@ static cmd_content_t control_cmd[MAX_CONTROL_MSG];
 //command count
 static uint8 cmd_cnt;
 static uint8 control_cmd_idx = 0;
+static uint8 control_cmd_done = 1;
 
 extern char *nm_itoa(int n);
 extern int nm_atoi(const char* str);
@@ -373,6 +374,17 @@ void check_heartbeat_packet_resp(void* p)
 void control_resp_timer_callback(void* p)
 {
 	M2M_DBG("control resp timer out\r\n");
+	send_control_status(&control_cmd[control_cmd_idx], false);
+
+	if(control_cmd_idx == (cmd_cnt - 1)){
+		control_cmd_idx = 0;
+		control_cmd_done = CONTROL_CMD_DONE;
+	}else{
+		control_cmd_idx ++;
+		//forward remaining control commands
+		create_event(ACT_REQ_FORWARD_CONTROL);
+	}
+
 }
 
 //generate http post header
@@ -532,6 +544,38 @@ void send_control_status(cmd_content_t* cmd,uint8 status)
 
 	if(httpsClientSocket>=0){
 		M2M_DBG("send control status\r\n%s\n", TxBuffer);
+		send(httpsClientSocket, (uint8*)TxBuffer, strlen(TxBuffer), 0);
+	}
+}
+
+//send device status
+void send_device_status(uint8* p_status)
+{
+	if(commProcess != INPROGRESS_HB)
+		return;
+
+	memset(TxBuffer, 0, sizeof(TxBuffer));
+
+	strcat(TxBuffer, "GET http://");
+	strcat(TxBuffer, JY_DOMAIN_NAME);
+	strcat(TxBuffer, "/");
+	strcat(TxBuffer, "?func=device.update&content=");
+	strcat(TxBuffer, (char*)p_status);
+	strcat(TxBuffer, " HTTP/1.1\r\n");
+	strcat(TxBuffer, "Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8\r\n");
+	strcat(TxBuffer, "Host: ");
+	strcat(TxBuffer, JY_DOMAIN_NAME);
+	strcat(TxBuffer, "\r\n");
+	strcat(TxBuffer, "Connection: Keep-Alive\r\n");
+	strcat(TxBuffer, "Cookie: PHPSESSID=");
+	strcat(TxBuffer, cookie);
+	strcat(TxBuffer, "; theme=default; lang=en\r\n");
+	//strcat(TxBuffer, "Cookie: PHPSESSID=irtfkkj4qlda40hgtov9jablg6; theme=default; lang=en\r\n");
+	strcat(TxBuffer, "User-Agent: atmel/1.0.2\r\n");
+	strcat(TxBuffer, "\r\n");
+
+	if(httpsClientSocket>=0){
+		M2M_DBG("send device status\r\n%s\n", TxBuffer);
 		send(httpsClientSocket, (uint8*)TxBuffer, strlen(TxBuffer), 0);
 	}
 }
@@ -1093,22 +1137,22 @@ void App_ProcessActRequest(tenuActReq enuActReq)
 	}else if(enuActReq == ACT_REQ_FORWARD_CONTROL){
 		uint8 i;
 		M2M_DBG("%d commands recved\r\n",cmd_cnt);
-		for(i=cmd_cnt;i>0;i--){
+		//for(i=cmd_cnt;i>0;i--){
 			//forward cmd to host controller
-			//M2M_DBG("cmd %d:id:%s,name:%s\r\n",i,control_cmd[i].id,control_cmd[i].name);
-			//if(!strcmp(g_wifi_param.device_inst.device_id, control_cmd[i-1])){
-				M2M_PRINT("%s_____%s",control_cmd[i-1].name,control_cmd[i-1].description);
-				//send control status
-				send_control_status(&control_cmd[i-1], TASK_DONE_SUCCESS);
-				if (app_os_timer_start(&gstrTimerHBResp, "control cmd resp timer",
-								control_resp_timer_callback,CONTROL_RESP_INTERVAL, 0,NULL, 1)) {
-							M2M_ERR("Can't start timer\n");
-				}
-				//app_os_sch_task_sleep(1);
-			//}
-
+			//M2M_PRINT("%s_____%s",control_cmd[i-1].name,control_cmd[i-1].description);
+		if(control_cmd_idx < cmd_cnt){
+			control_cmd_done = CONTROL_CMD_INPROCESS;
+			M2M_PRINT("%s_____%s",control_cmd[control_cmd_idx].name,control_cmd[control_cmd_idx].description);
+			//send control status
+			//send_control_status(&control_cmd[i-1], TASK_DONE_SUCCESS);
+			if (app_os_timer_start(&gstrTimerHBResp, "control cmd resp timer",
+							control_resp_timer_callback,CONTROL_RESP_INTERVAL, 0,NULL, 1)) {
+						M2M_ERR("Can't start timer\n");
+			}
 
 		}
+
+		//}
 	}else if(enuActReq == ACT_REQ_SERVER_CONNECT){
 		if(gbWifiConnected){
 			if (httpsClientSocket < 0 && gu8App == APP_WIFI){
@@ -1137,7 +1181,30 @@ void App_ProcessActRequest(tenuActReq enuActReq)
 	}else if(enuActReq == ACT_REQ_SERIAL_RECV){
 		M2M_DBG("response from usart:\r\n%s",serial_packet);//in case string response
 		//construct http response packet
-		app_os_timer_stop(&gstrTimerControlResp);
+
+
+		if(control_cmd_done != CONTROL_CMD_DONE){
+
+			app_os_timer_stop(&gstrTimerControlResp);
+
+			//control response
+			send_control_status(&control_cmd[control_cmd_idx], true);
+			send_device_status(serial_packet);
+
+			if(control_cmd_idx == (cmd_cnt - 1)){
+				control_cmd_idx = 0;
+				control_cmd_done = CONTROL_CMD_DONE;
+			}else{
+				control_cmd_idx ++;
+				//forward remaining control commands
+				create_event(ACT_REQ_FORWARD_CONTROL);
+			}
+
+
+		}else{
+			//status upload
+			send_device_status(serial_packet);
+		}
 	}
 }
 

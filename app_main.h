@@ -40,6 +40,7 @@ MACROS
 
 #define HB_INTERVAL 				1000
 #define HB_RESP_INTERVAL			1000
+#define CONTROL_RESP_INTERVAL		1000
 
 #define JY_DOMAIN_NAME				"control.iot.gudidea.com"
 #define JY_DOMAIN_PORT          	80

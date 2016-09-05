@@ -41,6 +41,8 @@ tstrOsSemaphore gstrAppSem;
 static tstrOsTimer gstrTimerHB;
 //heart beat response timer
 static tstrOsTimer gstrTimerHBResp;
+//control command response timer
+static tstrOsTimer gstrTimerControlResp;
 
 //flags
 static uint8  gbServerConnected = false;
@@ -63,6 +65,8 @@ static char configCallbackBuf[CONFIG_CALLBACK_LEN]={0};
 static char cookie[COOKIE_LEN]={0};
 uint8 serial_packet[SERIAL_BUF_SIZE];
 //static uint8  selfDHCPIp[4];
+
+
 static uint8 disconn_cnt = 0;
 //event table
 static tenuActReq g_event_tbl[EVENT_TABLE_SIZE] = {ACT_REQ_NONE, ACT_REQ_NONE, ACT_REQ_NONE, ACT_REQ_NONE};
@@ -81,6 +85,7 @@ static volatile data_pkt_t tcp_data_pkt;
 static cmd_content_t control_cmd[MAX_CONTROL_MSG];
 //command count
 static uint8 cmd_cnt;
+static uint8 control_cmd_idx = 0;
 
 extern char *nm_itoa(int n);
 extern int nm_atoi(const char* str);
@@ -363,6 +368,11 @@ void check_heartbeat_packet_resp(void* p)
 		//isHBRespRecv = false;
 		//app_os_timer_stop(&gstrTimerHB);
 	//}
+}
+
+void control_resp_timer_callback(void* p)
+{
+	M2M_DBG("control resp timer out\r\n");
 }
 
 //generate http post header
@@ -1090,6 +1100,10 @@ void App_ProcessActRequest(tenuActReq enuActReq)
 				M2M_PRINT("%s_____%s",control_cmd[i-1].name,control_cmd[i-1].description);
 				//send control status
 				send_control_status(&control_cmd[i-1], TASK_DONE_SUCCESS);
+				if (app_os_timer_start(&gstrTimerHBResp, "control cmd resp timer",
+								control_resp_timer_callback,CONTROL_RESP_INTERVAL, 0,NULL, 1)) {
+							M2M_ERR("Can't start timer\n");
+				}
 				//app_os_sch_task_sleep(1);
 			//}
 
@@ -1123,6 +1137,7 @@ void App_ProcessActRequest(tenuActReq enuActReq)
 	}else if(enuActReq == ACT_REQ_SERIAL_RECV){
 		M2M_DBG("response from usart:\r\n%s",serial_packet);//in case string response
 		//construct http response packet
+		app_os_timer_stop(&gstrTimerControlResp);
 	}
 }
 
@@ -1261,6 +1276,7 @@ sint8 app_start(void)
 	m2m_memset((uint8*) &gstrAppSem, 0, sizeof(gstrAppSem));
 	m2m_memset((uint8*) &gstrTimerHB, 0, sizeof(gstrTimerHB));
 	m2m_memset((uint8*) &gstrTimerHBResp, 0, sizeof(gstrTimerHBResp));
+	m2m_memset((uint8*) &gstrTimerControlResp, 0, sizeof(gstrTimerControlResp));
 	m2m_memset((uint8*)&param, 0, sizeof(param));
 	memset((void*)&g_wifi_param.device_inst,0,sizeof(g_wifi_param.device_inst));
 	param.pfAppWifiCb = wifi_cb;

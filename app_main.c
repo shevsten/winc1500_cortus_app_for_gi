@@ -86,7 +86,7 @@ static cmd_content_t control_cmd[MAX_CONTROL_MSG];
 //command count
 static uint8 cmd_cnt;
 static uint8 control_cmd_idx = 0;
-static uint8 control_cmd_done = 1;
+static uint8 control_cmd_done = CONTROL_CMD_DONE;
 
 extern char *nm_itoa(int n);
 extern int nm_atoi(const char* str);
@@ -262,10 +262,10 @@ static void wifi_cb(uint8 u8MsgType, void * pvMsg)
 
 			disconn_cnt++;
 			if(disconn_cnt == MAX_DISCONNECT_CNT){
-				//clear_parameter();
-				//reset to reenter AP mode
-				//app_os_sch_task_sleep(3);//delay 3 OS_TICKs
-				//chip_reset();
+//				clear_parameter();
+//				//reset to reenter AP mode
+//				app_os_sch_task_sleep(3);//delay 3 OS_TICKs
+//				chip_reset();
 			}
 			if(gu8App == APP_WIFI)
 			{
@@ -379,6 +379,7 @@ void control_resp_timer_callback(void* p)
 	if(control_cmd_idx == (cmd_cnt - 1)){
 		control_cmd_idx = 0;
 		control_cmd_done = CONTROL_CMD_DONE;
+		gbHeartBeatReady = 1;
 	}else{
 		control_cmd_idx ++;
 		//forward remaining control commands
@@ -653,13 +654,40 @@ uint8 http_recv_check_taskdone(uint8 *Https_recevieBuf )
 		p_start = strstr( Https_recevieBuf,"\"status\":true");
 		if(p_start != NULL){
 
-			M2M_DBG("Task.done success\r\n");
+			M2M_DBG("task done success\r\n");
 
 			ret = 1;
 		}else{
-			M2M_DBG("Task.done failed\r\n");
+			M2M_DBG("task done failed\r\n");
 		}
-		gbHeartBeatReady = 1;
+		//gbHeartBeatReady = 1;
+	}else{
+		//M2M_DBG("not Task.done func\r\n");
+	}
+
+
+	return ret;
+}
+
+uint8 http_recv_check_device_update(uint8 *Https_recevieBuf )
+{
+	uint8 *p_start = NULL;
+	uint8 ret = 0;
+
+	p_start = strstr( Https_recevieBuf,"\"func\":\"device.update\"");
+	if(p_start != NULL){
+		p_start = strstr( Https_recevieBuf,"\"status\":true");
+		if(p_start != NULL){
+
+			M2M_DBG("device.update success\r\n");
+
+			ret = 1;
+		}else{
+			M2M_DBG("device.update failed\r\n");
+		}
+		if(control_cmd_done == CONTROL_CMD_DONE){
+			gbHeartBeatReady = 1;
+		}
 	}else{
 		//M2M_DBG("not Task.done func\r\n");
 	}
@@ -1087,7 +1115,11 @@ void App_ProcessActRequest(tenuActReq enuActReq)
 						commProcess = INPROGRESS_HB;
 						M2M_DBG("Login response\r\n");
 					}else if(http_recv_check_taskdone(tcp_data_pkt.buf)){
-							M2M_DBG("Taskdone response\r\n");
+							M2M_DBG("task done response\r\n");
+					}else if(http_recv_check_device_update(tcp_data_pkt.buf)){
+						M2M_DBG("device update response\r\n");
+					}else{
+						M2M_DBG("unknown response\r\n");
 					}
 				}
 				recv(httpsClientSocket,gau8RxBuffer,sizeof(gau8RxBuffer), 0);
@@ -1144,11 +1176,14 @@ void App_ProcessActRequest(tenuActReq enuActReq)
 			control_cmd_done = CONTROL_CMD_INPROCESS;
 			M2M_PRINT("%s_____%s",control_cmd[control_cmd_idx].name,control_cmd[control_cmd_idx].description);
 			//send control status
+			//send_control_status(&control_cmd[control_cmd_idx], TASK_DONE_SUCCESS);
 			//send_control_status(&control_cmd[i-1], TASK_DONE_SUCCESS);
 			if (app_os_timer_start(&gstrTimerHBResp, "control cmd resp timer",
 							control_resp_timer_callback,CONTROL_RESP_INTERVAL, 0,NULL, 1)) {
 						M2M_ERR("Can't start timer\n");
 			}
+			//stop hb until commands done
+			gbHeartBeatReady = 0;
 
 		}
 
@@ -1182,18 +1217,20 @@ void App_ProcessActRequest(tenuActReq enuActReq)
 		M2M_DBG("response from usart:\r\n%s",serial_packet);//in case string response
 		//construct http response packet
 
-
+		M2M_DBG("control_cmd_done=%d\r\n",control_cmd_done);
 		if(control_cmd_done != CONTROL_CMD_DONE){
 
 			app_os_timer_stop(&gstrTimerControlResp);
-
+			M2M_DBG("control_cmd_idx=%d\r\n",control_cmd_idx);
 			//control response
 			send_control_status(&control_cmd[control_cmd_idx], true);
+			app_os_sch_task_sleep(10);
 			send_device_status(serial_packet);
 
 			if(control_cmd_idx == (cmd_cnt - 1)){
 				control_cmd_idx = 0;
 				control_cmd_done = CONTROL_CMD_DONE;
+				gbHeartBeatReady = 1;
 			}else{
 				control_cmd_idx ++;
 				//forward remaining control commands
@@ -1203,7 +1240,9 @@ void App_ProcessActRequest(tenuActReq enuActReq)
 
 		}else{
 			//status upload
+			gbHeartBeatReady = 1;
 			send_device_status(serial_packet);
+
 		}
 	}
 }

@@ -40,7 +40,7 @@ MACROS
 
 #define HB_INTERVAL 				1000
 #define HB_RESP_INTERVAL			1000
-#define CONTROL_RESP_INTERVAL		1000
+#define CONTROL_RESP_INTERVAL		3000
 
 #define JY_DOMAIN_NAME				"control.iot.gudidea.com"
 #define JY_DOMAIN_PORT          	80
@@ -72,8 +72,8 @@ enum{
 };
 
 enum{
-	CONTROL_CMD_DONE = 0,
-	CONTROL_CMD_INPROCESS
+	CONTROL_CMD_INPROCESS = 1,
+	CONTROL_CMD_DONE
 };
 
 enum{
@@ -134,7 +134,7 @@ typedef struct _wifi_param_t {
 }wifi_param_t;
 
 typedef struct _cmd_content_t {
-	uint8 id[4];
+	uint8 id[8];
 	uint8 name[50];
 	uint8 description[40];
 }cmd_content_t;
